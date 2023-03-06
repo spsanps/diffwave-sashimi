@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - experiment: sc09
+  - experiment: bachViolin
 
 train: # Not used in generate.py
   name: null # Name of experiment (prefix of experiment name)
@@ -24,8 +24,8 @@ distributed:
   dist_url: tcp://localhost:54321
 
 wandb:
-  mode: disabled # Pass in 'wandb.mode=online' to turn on wandb logging
-  project: sashimi
+  mode: online # Pass in 'wandb.mode=online' to turn on wandb logging
+  project: sashimi-test
   entity: null
-  id: null # Set to string to resume logging from run
+  id: san-sashimi-test-1 # Set to string to resume logging from run
   job_type: training
