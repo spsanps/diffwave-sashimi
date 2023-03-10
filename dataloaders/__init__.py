@@ -3,6 +3,7 @@ from torch.utils.data.distributed import DistributedSampler
 from .sc import SpeechCommands
 from .mel2samp import Mel2Samp
 from .bach_violin import BachViolin
+from .bach_violin import BachViolinRoll
 
 
 def dataloader(dataset_cfg, batch_size, num_gpus, unconditional=True):
@@ -18,6 +19,10 @@ def dataloader(dataset_cfg, batch_size, num_gpus, unconditional=True):
     elif dataset_name == "bachViolin":
         assert unconditional
         dataset = BachViolin(dataset_cfg.data_path)
+    elif dataset_name == "bachViolinRoll":
+        assert unconditional
+        dataset = BachViolinRoll(dataset_cfg.data_path)
+    
     dataset_cfg["_name_"] = dataset_name # Restore
 
     # distributed sampler

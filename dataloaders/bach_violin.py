@@ -19,22 +19,24 @@ from torchaudio.datasets.utils import (
     extract_archive,
 )
 
+import glob
 
 MAX_WAV_VALUE = 32768.0
 
-def files_to_list(data_path):
+SAMPLE_RATE = 16000
+
+def files_to_list(data_path, ends_with = '.mp3'):
     """
     Load all .wav files in data_path
     """
     # Go through all subdirectories and find the files
     ret = []
-    files = []
     for root, dirs, files in os.walk(data_path):
         for file in files:
-            if file.endswith('.mp3'):
-                files.append(file)
+            if file.endswith(ends_with):
+                #files.append(file)
                 ret.append(os.path.join(root, file))
-    return ret, files
+    return ret, None
 
 def load_wav_to_torch(full_path):
     """
@@ -66,8 +68,8 @@ def fix_length(tensor, length):
 
 class BachViolin(Dataset):
     """
-    Create a Dataset for Speech Commands. Each item is a tuple of the form:
-    waveform, sample_rate, label
+    Create a Dataset for Bach Violin. Each item is a tuple of the form:
+    waveform, sample_rate
     """
 
     def __init__(self, path: str):
@@ -76,154 +78,67 @@ class BachViolin(Dataset):
     def __getitem__(self, n: int) -> Tuple[Tensor, int, str, str, int]:
         n = n % len(self.audio_paths)
         filename = self.audio_paths[n]
-        return load_wav_to_torch(filename)
+        audio =  load_wav_to_torch(filename)
+        assert not torch.isnan(audio[0]).any(), "NaN in audio Loader"
+        return audio
 
     def __len__(self) -> int:
         # randomly sample parts of the audio file
         # to cover all parts of the audio file
         return len(self.audio_paths)*5000 
 
-class BachViolinWithPianoRoll(Dataset):
-    """
-    Create a Dataset for Speech Commands. Each item is a tuple of the form:
-    waveform, sample_rate, label
-    """
+
+class BachViolinRoll(Dataset):
+    """ Create a Dataset for Bach Violin. Each item is a tuple of the form:
+    waveform, proll waveform, sample_rate"""
 
     def __init__(self, path: str):
-        
-        
+        audio_path = os.path.join(path, "audio")
+        proll_path = os.path.join(path, "proll")
+
+        # find all wav files in these paths using os
+    
+        self.audio_paths = []
+        # for filename in glob.glob(os.path.join(path, '*.wav')):
+
+        for filename in glob.glob(os.path.join(audio_path, '*.wav')):
+            self.audio_paths.append(filename)
+
+        self.proll_paths = []
+        for filename in glob.glob(os.path.join(proll_path, '*.wav')):
+            self.proll_paths.append(filename)
+
+        #print(len(self.audio_paths))
+        #assert False
+        assert len(self.audio_paths) > 0
+
+        #print(len(self.audio_paths))
+
+        assert len(self.audio_paths) == len(self.proll_paths)
 
     def __getitem__(self, n: int) -> Tuple[Tensor, int, str, str, int]:
         n = n % len(self.audio_paths)
-        filename = self.audio_paths[n]
-        audio, sample_rate, label = load_wav_to_torch(filename)
-        piano_roll = self.get_piano_roll(audio)
-        return audio, sample_rate, label, piano_roll
+        audiofile = self.audio_paths[n]
+        prollfile = self.proll_paths[n]
+
+        # load audio wave
+        audio, sample_rate = torchaudio.load(audiofile)
+        
+        # load proll wave
+        proll, sample_rate2 = torchaudio.load(prollfile)
+
+        assert sample_rate == sample_rate2
+        assert audio.shape[1] == proll.shape[1]
+
+        # find a 1 random second segment
+        audio_len = audio.shape[1]
+        start = np.random.randint(0, audio_len - SAMPLE_RATE)
+        audio = audio[:,start:start+SAMPLE_RATE]
+        proll = proll[:,start:start+SAMPLE_RATE]
+
+        return audio, proll, sample_rate
 
     def __len__(self) -> int:
         # randomly sample parts of the audio file
         # to cover all parts of the audio file
-        return len(self.audio_paths)*5000 
-    
-    def load_notes(self, filename):
-        """
-        Load csv files corresponding to every audio file
-        The files are named the same as the audio file except with .csv extension
-        It is in the notes folder instead of the audio folder
-        The format of the csv file is:
-        onset,offset,pitch,velocity
-        """
-        
-        # find all the csv files in the notes folder in the order of the audio files
-        # the audio files are in self.audio_files = files_to_list(path)
-
-        # walk through the notes folder
-        # and find the csv files in the order of the audio files
-        # and load them into a list
-        # the list is the same length as self.audio_files
-        # and each element is a numpy array of shape (n, 4)
-        # where n is the number of notes in the csv file
-        # and the 4 columns are onset, offset, pitch, velocity
-        
-        ret = []
-        for root, dirs, files in os.walk(filename):
-            for file in files:
-                if file.endswith('.csv'):
-                    ret.append(os.path.join(root, file))
-
-        # arrange the csv files in the same order as the audio files
-        ret = sorted(ret, key=lambda x: self.audio_files.index(x[:-4]+'.mp3'))
-
-        # load the csv files into a list of numpy arrays
-        ret = [np.loadtxt(x, delimiter=',') for x in ret]
-
-        return ret
-    
-    def load_alignment(self, filename):
-        """
-        Load csv files corresponding to every audio file
-        The files are named the same as the audio file except with .csv extension
-        It is in the alignment folder instead of the audio folder
-        The format of the csv file is:
-        start,end
-        """
-        # Same as load_notes but for the alignment files
-
-        ret = []
-        for root, dirs, files in os.walk(filename):
-            for file in files:
-                if file.endswith('.csv'):
-                    ret.append(os.path.join(root, file))
-
-        # arrange the csv files in the same order as the audio files
-        ret = sorted(ret, key=lambda x: self.audio_files.index(x[:-4]+'.mp3'))
-
-        # load the csv files into a list of numpy arrays
-        ret = [np.loadtxt(x, delimiter=',') for x in ret]
-
-        return ret
-    
-    def get_piano_roll(self, i):
-
-
-        # alignment is a list of numpy arrays of shape (n, 2)
-        # where n is the number of notes in the csv file
-        # and the 2 columns are start, end time of the notes in the audio file
-
-        # create a piano roll for each audio file, 
-        # the piano roll is going to be the same size as the audio file
-        
-        """
-        Sample code to create a piano roll segment
-
-        global_end = round(
-        max(float(alignment[i]["end"]) for i in csv_row_indices)
-            / args.resolution
-        )
-        global_start = round(
-            float(alignment[csv_row_indices[0]]["start"]) / args.resolution
-        )
-        pianoroll = np.zeros((global_end - global_start, 128), bool)
-        for csv_row_idx in csv_row_indices:
-            csv_row = alignment[csv_row_idx]
-            start_ = (
-                round(float(csv_row["start"]) / args.resolution)
-                - global_start
-            )
-            end_ = (
-                round(float(csv_row["end"]) / args.resolution)
-                - global_start
-            )
-            pitch = int(notes[csv_row_idx]["pitch"])
-            pianoroll[start_:end_, pitch] = 1
-        start_idx = rounded_start - global_start
-        end_idx = rounded_end - global_start
-                
-        """
-        # create corresponding piano roll for each audio file
-
-        notes = self.load_notes(None)[i]
-        alignment = self.load_alignment(None)[i]
-
-        # create a piano roll for each audio file,
-        # the piano roll is going to be the same size as the audio file
-
-        for i in 
-
-
-
-
-
-        
-
-
-
-
-
-        
-
-    
-    def load_alignment(self, filename):
-        return np.load(filename)
-
-    def get_piano_roll(self, audio):
+        return len(self.audio_paths)*5000

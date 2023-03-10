@@ -1,0 +1,4 @@
+_name_: bachViolinRoll
+data_path: data/bv_processed
+segment_length: 16000
+sampling_rate: 16000

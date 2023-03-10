@@ -77,6 +77,8 @@ def train(
 
     # load training data
     trainloader = dataloader(dataset_cfg, batch_size=batch_size_per_gpu, num_gpus=num_gpus, unconditional=model_cfg.unconditional)
+    valloader = dataloader(dataset_cfg, batch_size=batch_size_per_gpu, num_gpus=num_gpus, unconditional=model_cfg.unconditional)
+    valloader = iter(valloader)
     print('Data loaded')
 
     # predefine model
@@ -120,9 +122,19 @@ def train(
         epoch_loss = 0.
         for data in tqdm(trainloader, desc=f'Epoch {n_iter // len(trainloader)}'):
             if model_cfg["unconditional"]:
-                audio, _, _ = data
+                audio, proll_val, _ = data
+                
+
+                #set audio as random noise
+                #audio = torch.randn(audio1.shape)
+                proll_val = proll_val.cuda()
                 # load audio
                 audio = audio.cuda()
+
+                # normalize audio
+                #audio = audio / torch.max(torch.abs(audio))
+
+                assert not torch.isnan(audio).any(), "Audio is NaN"
                 mel_spectrogram = None
             else:
                 mel_spectrogram, audio = data
@@ -131,7 +143,13 @@ def train(
 
             # back-propagation
             optimizer.zero_grad()
-            loss = training_loss(net, nn.MSELoss(), audio, diffusion_hyperparams, mel_spec=mel_spectrogram)
+            loss = training_loss(net, nn.MSELoss(), audio, proll_val, diffusion_hyperparams, mel_spec=mel_spectrogram)
+            #assert not torch.isnan(loss).any(), "Loss is NaN"
+
+            if torch.isnan(loss).any():
+                print("Loss is NaN")
+                continue
+
             if num_gpus > 1:
                 reduced_loss = reduce_tensor(loss.data, num_gpus).item()
             else:
@@ -169,10 +187,15 @@ def train(
                 #     mel_name=generate_cfg.mel_name # "LJ001-0001"
                 if not model_cfg["unconditional"]: assert generate_cfg.mel_name is not None
                 generate_cfg["ckpt_iter"] = n_iter
+                valdata = next(valloader)
+                audio_val, proll_val, _ = valdata
+                proll_val = proll_val.cuda()
+                #audio_val = audio_val
                 samples = generate(
                     rank, # n_iter,
                     diffusion_cfg, model_cfg, dataset_cfg,
                     name=name,
+                    proll=proll_val,
                     **generate_cfg,
                     # n_samples, n_iter, name,
                     # mel_path=mel_path,
@@ -181,6 +204,15 @@ def train(
                 samples = [wandb.Audio(sample.squeeze().cpu(), sample_rate=dataset_cfg['sampling_rate']) for sample in samples]
                 wandb.log(
                     {'inference/audio': samples},
+                    step=n_iter,
+                    # commit=False,
+                )
+
+                # log audio_val and prol_val
+                audio_vals = [wandb.Audio(av.squeeze().cpu(), sample_rate=dataset_cfg['sampling_rate']) for av in audio_val]
+                proll_vals = [wandb.Audio(pv.squeeze().cpu(), sample_rate=dataset_cfg['sampling_rate']) for pv in proll_val]
+                wandb.log(
+                    {'val/audio_val': audio_vals, 'val/proll_val': proll_vals},
                     step=n_iter,
                     # commit=False,
                 )
@@ -195,7 +227,7 @@ def train(
         # tb.close()
         wandb.finish()
 
-def training_loss(net, loss_fn, audio, diffusion_hyperparams, mel_spec=None):
+def training_loss(net, loss_fn, audio, proll, diffusion_hyperparams, mel_spec=None):
     """
     Compute the training loss of epsilon and epsilon_theta
 
@@ -218,7 +250,10 @@ def training_loss(net, loss_fn, audio, diffusion_hyperparams, mel_spec=None):
     diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
     z = torch.normal(0, 1, size=audio.shape).cuda()
     transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * audio + torch.sqrt(1-Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
-    epsilon_theta = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
+    epsilon_theta, r = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec, proll=proll)  # predict \epsilon according to \epsilon_\theta
+    #print("epsilon_theta.shape: ", epsilon_theta.shape)
+    if r is not None: print("r.shape: ", r.shape)
+    assert not torch.isnan(epsilon_theta).any()
     return loss_fn(epsilon_theta, z)
 
 

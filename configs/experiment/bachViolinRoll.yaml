@@ -1,0 +1,13 @@
+# @package _global_
+defaults:
+  - /model: sashimi
+  - /dataset: bachViolinRoll
+
+diffusion:
+  T: 200
+  beta_0: 0.0001
+  beta_T: 0.02
+  beta: null
+
+train:
+  iters_per_ckpt: 1000
