@@ -95,6 +95,7 @@ class BachViolinRoll(Dataset):
     def __init__(self, path: str):
         audio_path = os.path.join(path, "audio")
         proll_path = os.path.join(path, "proll")
+        syn_path = os.path.join(path, "synthesized")
 
         # find all wav files in these paths using os
     
@@ -104,8 +105,12 @@ class BachViolinRoll(Dataset):
         for filename in glob.glob(os.path.join(audio_path, '*.wav')):
             self.audio_paths.append(filename)
 
+        self.syn_paths = []
+        for filename in glob.glob(os.path.join(syn_path, '*.wav')):
+            self.syn_paths.append(filename)
+
         self.proll_paths = []
-        for filename in glob.glob(os.path.join(proll_path, '*.wav')):
+        for filename in glob.glob(os.path.join(proll_path, '*.npy')):
             self.proll_paths.append(filename)
 
         #print(len(self.audio_paths))
@@ -114,29 +119,43 @@ class BachViolinRoll(Dataset):
 
         #print(len(self.audio_paths))
 
-        assert len(self.audio_paths) == len(self.proll_paths)
+        assert len(self.audio_paths) == len(self.syn_paths)
+        assert len(self.audio_paths) == len(self.syn_paths)
 
     def __getitem__(self, n: int) -> Tuple[Tensor, int, str, str, int]:
         n = n % len(self.audio_paths)
         audiofile = self.audio_paths[n]
-        prollfile = self.proll_paths[n]
+        synfile = self.syn_paths[n]
 
         # load audio wave
         audio, sample_rate = torchaudio.load(audiofile)
         
-        # load proll wave
-        proll, sample_rate2 = torchaudio.load(prollfile)
+        # load syn wave
+        syn, sample_rate2 = torchaudio.load(synfile)
+
+        # load proll
+        prollfile = self.proll_paths[n]
+        #proll = np.load(prollfile)
+
+
 
         assert sample_rate == sample_rate2
-        assert audio.shape[1] == proll.shape[1]
+        assert audio.shape[1] == syn.shape[1]
+
+        # audio is 16Khz, proll is 64Hz
+        #print(audio.shape, proll.shape)
+        #assert proll.shape[1]*16000/64 == audio.shape[1]
 
         # find a 1 random second segment
         audio_len = audio.shape[1]
         start = np.random.randint(0, audio_len - SAMPLE_RATE)
         audio = audio[:,start:start+SAMPLE_RATE]
-        proll = proll[:,start:start+SAMPLE_RATE]
+        syn = syn[:,start:start+SAMPLE_RATE]
+        #proll = proll[:,start*64//16000:(start+SAMPLE_RATE)*64//16000]
 
-        return audio, proll, sample_rate
+        # TODO proll in tensor
+
+        return audio, syn, syn, sample_rate
 
     def __len__(self) -> int:
         # randomly sample parts of the audio file

@@ -20,7 +20,7 @@ from scipy.io.wavfile import write as wavwrite
 from models import construct_model
 from utils import find_max_epoch, print_size, calc_diffusion_hyperparams, local_directory, smooth_ckpt
 
-def sampling(net, size, diffusion_hyperparams, condition=None, proll=None):
+def sampling(net, size, diffusion_hyperparams, diffuse = False, condition=None, syn_audio=None):
     """
     Perform the complete sampling step according to p(x_0|x_T) = \prod_{t=1}^T p_{\theta}(x_{t-1}|x_t)
 
@@ -43,15 +43,21 @@ def sampling(net, size, diffusion_hyperparams, condition=None, proll=None):
     assert len(size) == 3
 
     print('begin sampling, total number of reverse steps = %s' % T)
-
-    x = torch.normal(0, 1, size=size).cuda()
-    with torch.no_grad():
-        for t in tqdm(range(T-1, -1, -1)):
-            diffusion_steps = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
-            epsilon_theta, _ = net((x, diffusion_steps,), mel_spec=condition, proll=proll)  # predict \epsilon according to \epsilon_\theta
-            x = (x - (1-Alpha[t])/torch.sqrt(1-Alpha_bar[t]) * epsilon_theta) / torch.sqrt(Alpha[t])  # update x_{t-1} to \mu_\theta(x_t)
-            if t > 0:
-                x = x + Sigma[t] * torch.normal(0, 1, size=size).cuda()  # add the variance term to x_{t-1}
+    if diffuse:
+        x = torch.normal(0, 1, size=size).cuda()
+        with torch.no_grad():
+            for t in tqdm(range(T-1, -1, -1)):
+                diffusion_steps = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
+                epsilon_theta, _ = net((x, diffusion_steps,), mel_spec=condition, proll=syn_audio)  # predict \epsilon according to \epsilon_\theta
+                x = (x - (1-Alpha[t])/torch.sqrt(1-Alpha_bar[t]) * epsilon_theta) / torch.sqrt(Alpha[t])  # update x_{t-1} to \mu_\theta(x_t)
+                if t > 0:
+                    x = x + Sigma[t] * torch.normal(0, 1, size=size).cuda()  # add the variance term to x_{t-1}
+    else:
+        with torch.no_grad():
+            B, C, L = syn_audio.shape 
+            #t = torch.randint(T).cuda()
+            diffusion_steps = (torch.ones((size[0], 1))).cuda()
+            x, _ = net((syn_audio, diffusion_steps,), mel_spec=condition, proll=None)
     return x
 
 
@@ -68,7 +74,8 @@ def generate(
         ckpt_smooth=None,
         mel_path=None, mel_name=None,
         dataloader=None,
-        proll = None
+        syn_audio = None,
+        diffuse = False
     ):
     """
     Generate audio based on ground truth mel spectrogram
@@ -176,7 +183,8 @@ def generate(
             (batch_size,1,audio_length),
             diffusion_hyperparams,
             condition=ground_truth_mel_spectrogram,
-            proll=proll
+            syn_audio=syn_audio,
+            diffuse = diffuse
         )
         generated_audio.append(_audio)
     generated_audio = torch.cat(generated_audio, dim=0)

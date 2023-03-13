@@ -175,6 +175,8 @@ class DiffWaveBlock(nn.Module):
                 self.upsample_conv2d.append(conv_trans2d)
             self.mel_conv = Conv(80, self.d_model, kernel_size=1)  # 80 is mel bands
 
+        self.r_layers = r_layers
+
     def forward(self, x, r, diffusion_step_embed, mel_spec=None):
         y = x
         B, C, L = x.shape
@@ -183,7 +185,11 @@ class DiffWaveBlock(nn.Module):
         y = self.norm1(y)
 
         if r is not None:
+            assert self.r_layers
             r = self.norm1_r(r)
+        else:
+            assert not self.r_layers
+        
 
         # add in diffusion step embedding
         part_t = self.fc_t(diffusion_step_embed)
@@ -255,7 +261,8 @@ class Sashimi(nn.Module):
         ):
         super().__init__()
 
-        assert r_layers is True
+        assert r_layers is False, "r_layers is not supported yet"
+
 
         self.L = L
         self.unet = unet
