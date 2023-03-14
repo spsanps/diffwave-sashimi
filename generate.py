@@ -60,13 +60,13 @@ def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, s
             for t in tqdm(range(T-1, 0, -1)):
                 diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
                 #diffusion_steps_t1 = ((t - 1) * torch.ones((size[0], 1))).cuda() 
-                x0, _ = net((xs, diffusion_steps_t,), mel_spec=condition, proll=None)  # predict \epsilon according to \epsilon_\theta
+                x0 = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
                 x0s = torch.sqrt(Alpha_bar[t]) * x0 + torch.sqrt(1-Alpha_bar[t]) * syn_audio
                 x0s1 = torch.sqrt(Alpha_bar[t - 1]) * x0s + torch.sqrt(1-Alpha_bar[t - 1]) * syn_audio
                 xs = xs - x0s + x0s1
             t = 0
             diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
-            x, _ = net((xs, diffusion_steps_t,), mel_spec=condition, proll=None)  # predict \epsilon according to \epsilon_\theta
+            x = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
     else:   
         with torch.no_grad():
             B, C, L = syn_audio.shape 

@@ -290,9 +290,9 @@ def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, me
     diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
     z = syn_audio
     transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * audio + torch.sqrt(1-Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
-    audio_theta, r = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
+    audio_theta = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
     #print("epsilon_theta.shape: ", epsilon_theta.shape)
-    if r is not None: print("r.shape: ", r.shape)
+    #if r is not None: print("r.shape: ", r.shape)
     assert not torch.isnan(audio_theta).any()
     return loss_fn(audio_theta, audio)
 
