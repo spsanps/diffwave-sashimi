@@ -56,7 +56,7 @@ def sampling(net, size, diffusion_hyperparams, diffuse = False, condition=None, 
         with torch.no_grad():
             B, C, L = syn_audio.shape 
             #t = torch.randint(T).cuda()
-            diffusion_steps = (torch.ones((size[0], 1))).cuda()
+            diffusion_steps = (torch.ones((size[0], 1))).cuda()*0
             x, _ = net((syn_audio, diffusion_steps,), mel_spec=condition, proll=None)
     return x
 

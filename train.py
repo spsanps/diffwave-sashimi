@@ -282,7 +282,7 @@ def training_loss_noDiffusion(net, loss_fn, audio_y, audio_x, diffusion_hyperpar
 
     # audio = X
     B, C, L = audio_y.shape  # B is batchsize, C=1, L is audio length
-    diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
+    diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()*0  # randomly sample diffusion steps from 1~T
     #z = torch.normal(0, 1, size=audio_y.shape).cuda()
     #transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * audio_y + torch.sqrt(1-Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
     audio_y_pred, _ = net((audio_x, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
