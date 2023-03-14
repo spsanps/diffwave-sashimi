@@ -50,7 +50,7 @@ def train(
     rank, num_gpus,
     diffusion_cfg, model_cfg, dataset_cfg, generate_cfg, # dist_cfg, wandb_cfg, # train_cfg,
     ckpt_iter, n_iters, iters_per_ckpt, iters_per_logging,
-    learning_rate, batch_size_per_gpu, diffuse = False,
+    learning_rate, batch_size_per_gpu, diffuse = True,
     # n_samples,
     name=None,
     # mel_path=None,
@@ -131,14 +131,16 @@ def train(
                 # load audio
                 audio = audio.cuda()
 
+                proll = proll.cuda()
+
                 # normalize audio
                 #audio = audio / torch.max(torch.abs(audio))
 
                 assert not torch.isnan(audio).any(), "Audio is NaN"
                 mel_spectrogram = None
             else:
-                mel_spectrogram, audio = data
-                mel_spectrogram = mel_spectrogram.cuda()
+                audio, syn_audio, proll, _ = data
+                mel_spectrogram = proll.cuda()
                 audio = audio.cuda()
 
             # back-propagation
@@ -188,11 +190,11 @@ def train(
                 # else:
                 #     assert mel_path is not None
                 #     mel_name=generate_cfg.mel_name # "LJ001-0001"
-                if not model_cfg["unconditional"]: assert generate_cfg.mel_name is not None
+                #if not model_cfg["unconditional"]: assert generate_cfg.mel_name is not None
                 generate_cfg["ckpt_iter"] = n_iter
                 valdata = next(valloader)
                 audio_val, syn_val, proll_val, _ = valdata
-                #proll_val = proll_val.cuda()
+                proll_val = proll_val.cuda()
                 syn_val = syn_val.cuda()
                 #audio_val = audio_val
                 samples = generate(
@@ -201,6 +203,7 @@ def train(
                     name=name,
                     syn_audio=syn_val,
                     diffuse = diffuse,
+                    mel_spec = proll_val,
                     **generate_cfg,
                     # n_samples, n_iter, name,
                     # mel_path=mel_path,
@@ -215,9 +218,9 @@ def train(
 
                 # log audio_val and prol_val
                 audio_vals = [wandb.Audio(av.squeeze().cpu(), sample_rate=dataset_cfg['sampling_rate']) for av in audio_val]
-                proll_vals = [wandb.Audio(pv.squeeze().cpu(), sample_rate=dataset_cfg['sampling_rate']) for pv in proll_val]
+                #proll_vals = [wandb.Audio(pv.squeeze().cpu(), sample_rate=dataset_cfg['sampling_rate']) for pv in proll_val]
                 wandb.log(
-                    {'val/audio_val': audio_vals, 'val/proll_val': proll_vals},
+                    {'inference/audio_val': audio_vals},
                     step=n_iter,
                     # commit=False,
                 )
@@ -255,7 +258,7 @@ def training_loss(net, loss_fn, audio, syn_audio, diffusion_hyperparams, mel_spe
     diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
     z = torch.normal(0, 1, size=audio.shape).cuda()
     transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * audio + torch.sqrt(1-Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
-    epsilon_theta, r = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec, syn_audio=syn_audio)  # predict \epsilon according to \epsilon_\theta
+    epsilon_theta, r = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
     #print("epsilon_theta.shape: ", epsilon_theta.shape)
     if r is not None: print("r.shape: ", r.shape)
     assert not torch.isnan(epsilon_theta).any()

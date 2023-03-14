@@ -22,6 +22,9 @@ def dataloader(dataset_cfg, batch_size, num_gpus, unconditional=True):
     elif dataset_name == "bachViolinRoll":
         assert unconditional
         dataset = BachViolinRoll(dataset_cfg.data_path)
+    elif dataset_name == "bachViolinRollProll":
+        assert not unconditional
+        dataset = BachViolinRoll(dataset_cfg.data_path)
     
     dataset_cfg["_name_"] = dataset_name # Restore
 

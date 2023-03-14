@@ -8,6 +8,8 @@ from einops import rearrange
 from models.utils import calc_diffusion_step_embedding
 from models.s4 import S4
 
+MEL_BANDS = 128
+
 class TransposedLN(nn.Module):
     def __init__(self, d):
         super().__init__()
@@ -173,7 +175,7 @@ class DiffWaveBlock(nn.Module):
                 conv_trans2d = torch.nn.utils.weight_norm(conv_trans2d)
                 torch.nn.init.kaiming_normal_(conv_trans2d.weight)
                 self.upsample_conv2d.append(conv_trans2d)
-            self.mel_conv = Conv(80, self.d_model, kernel_size=1)  # 80 is mel bands
+            self.mel_conv = Conv(MEL_BANDS, self.d_model, kernel_size=1)  # 80 is mel bands
 
         self.r_layers = r_layers
 
@@ -181,6 +183,9 @@ class DiffWaveBlock(nn.Module):
         y = x
         B, C, L = x.shape
         assert C == self.d_model
+
+        #print(mel_spec.shape)
+        #assert False
 
         y = self.norm1(y)
 

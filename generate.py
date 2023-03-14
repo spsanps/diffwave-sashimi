@@ -20,7 +20,7 @@ from scipy.io.wavfile import write as wavwrite
 from models import construct_model
 from utils import find_max_epoch, print_size, calc_diffusion_hyperparams, local_directory, smooth_ckpt
 
-def sampling(net, size, diffusion_hyperparams, diffuse = False, condition=None, syn_audio=None):
+def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, syn_audio=None):
     """
     Perform the complete sampling step according to p(x_0|x_T) = \prod_{t=1}^T p_{\theta}(x_{t-1}|x_t)
 
@@ -48,7 +48,7 @@ def sampling(net, size, diffusion_hyperparams, diffuse = False, condition=None, 
         with torch.no_grad():
             for t in tqdm(range(T-1, -1, -1)):
                 diffusion_steps = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
-                epsilon_theta, _ = net((x, diffusion_steps,), mel_spec=condition, proll=syn_audio)  # predict \epsilon according to \epsilon_\theta
+                epsilon_theta, _ = net((x, diffusion_steps,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
                 x = (x - (1-Alpha[t])/torch.sqrt(1-Alpha_bar[t]) * epsilon_theta) / torch.sqrt(Alpha[t])  # update x_{t-1} to \mu_\theta(x_t)
                 if t > 0:
                     x = x + Sigma[t] * torch.normal(0, 1, size=size).cuda()  # add the variance term to x_{t-1}
@@ -75,7 +75,8 @@ def generate(
         mel_path=None, mel_name=None,
         dataloader=None,
         syn_audio = None,
-        diffuse = False
+        diffuse = True,
+        mel_spec = None
     ):
     """
     Generate audio based on ground truth mel spectrogram
@@ -182,7 +183,7 @@ def generate(
             net,
             (batch_size,1,audio_length),
             diffusion_hyperparams,
-            condition=ground_truth_mel_spectrogram,
+            condition=mel_spec,
             syn_audio=syn_audio,
             diffuse = diffuse
         )

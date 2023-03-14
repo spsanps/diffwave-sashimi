@@ -24,6 +24,7 @@ import glob
 MAX_WAV_VALUE = 32768.0
 
 SAMPLE_RATE = 16000
+MEL_FREQ = 128
 
 def files_to_list(data_path, ends_with = '.mp3'):
     """
@@ -105,14 +106,16 @@ class BachViolinRoll(Dataset):
         for filename in glob.glob(os.path.join(audio_path, '*.wav')):
             self.audio_paths.append(filename)
 
+        # find corresponding synthesized wav files 
+        # so that order is the same
         self.syn_paths = []
-        for filename in glob.glob(os.path.join(syn_path, '*.wav')):
-            self.syn_paths.append(filename)
-
+        for i in range(len(self.audio_paths)):
+            self.syn_paths.append(self.audio_paths[i].replace("audio", "synthesized"))
+        
         self.proll_paths = []
-        for filename in glob.glob(os.path.join(proll_path, '*.npy')):
-            self.proll_paths.append(filename)
-
+        for i in range(len(self.audio_paths)):
+            self.proll_paths.append(self.audio_paths[i].replace("audio", "proll"))
+            self.proll_paths[i] = self.proll_paths[i].replace(".wav", ".npy")
         #print(len(self.audio_paths))
         #assert False
         assert len(self.audio_paths) > 0
@@ -135,7 +138,7 @@ class BachViolinRoll(Dataset):
 
         # load proll
         prollfile = self.proll_paths[n]
-        #proll = np.load(prollfile)
+        proll = np.load(prollfile)
 
 
 
@@ -144,18 +147,24 @@ class BachViolinRoll(Dataset):
 
         # audio is 16Khz, proll is 64Hz
         #print(audio.shape, proll.shape)
-        #assert proll.shape[1]*16000/64 == audio.shape[1]
+        #print(audio.shape[1], proll.shape[1])
+        assert proll.shape[1]*16000/MEL_FREQ == audio.shape[1], f"{proll.shape[1]*16000/MEL_FREQ} != {audio.shape[1]}"
 
         # find a 1 random second segment
         audio_len = audio.shape[1]
         start = np.random.randint(0, audio_len - SAMPLE_RATE)
         audio = audio[:,start:start+SAMPLE_RATE]
         syn = syn[:,start:start+SAMPLE_RATE]
-        #proll = proll[:,start*64//16000:(start+SAMPLE_RATE)*64//16000]
+        proll_start = start*MEL_FREQ//16000
+        proll = proll[:,proll_start:proll_start+MEL_FREQ]
+
+        # convert to tensor
+        # convert to float tensor (NOT double)
+        proll = torch.from_numpy(proll).float()
 
         # TODO proll in tensor
 
-        return audio, syn, syn, sample_rate
+        return audio, syn, proll, sample_rate
 
     def __len__(self) -> int:
         # randomly sample parts of the audio file
