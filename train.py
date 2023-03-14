@@ -195,7 +195,7 @@ def train(
                 if not model_cfg["unconditional"]: assert generate_cfg.mel_name is not None
                 generate_cfg["ckpt_iter"] = n_iter
                 valdata = next(valloader)
-                audio_val, syn_val, proll_val, _ = valdata
+                audio_val, syn_val, _, _ = valdata
                 #proll_val = proll_val.cuda()
                 syn_val = syn_val.cuda()
                 #audio_val = audio_val
@@ -220,9 +220,9 @@ def train(
 
                 # log audio_val and prol_val
                 audio_vals = [wandb.Audio(av.squeeze().cpu(), sample_rate=dataset_cfg['sampling_rate']) for av in audio_val]
-                proll_vals = [wandb.Audio(pv.squeeze().cpu(), sample_rate=dataset_cfg['sampling_rate']) for pv in proll_val]
+                syn_vals = [wandb.Audio(pv.squeeze().cpu(), sample_rate=dataset_cfg['sampling_rate']) for pv in syn_val]
                 wandb.log(
-                    {'val/audio_val': audio_vals, 'val/proll_val': proll_vals},
+                    {'inference/audio_val': audio_vals, 'inference/syn_val': syn_vals},
                     step=n_iter,
                     # commit=False,
                 )
