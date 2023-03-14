@@ -157,12 +157,7 @@ class DiffWaveBlock(nn.Module):
         self.norm2 = TransposedLN(d_model)
 
         # layers for r input
-        if r_layers:
-            self.layer_r = S4(d_model, l_max=L, bidirectional=True)
-            self.ff_r = FF(d_model, ff)
 
-            self.norm1_r = TransposedLN(d_model)
-            self.norm2_r = TransposedLN(d_model)
 
         self.unconditional = unconditional
         if not self.unconditional:
@@ -177,18 +172,14 @@ class DiffWaveBlock(nn.Module):
 
         self.r_layers = r_layers
 
-    def forward(self, x, r, diffusion_step_embed, mel_spec=None):
+    def forward(self, x, diffusion_step_embed, mel_spec=None):
         y = x
         B, C, L = x.shape
         assert C == self.d_model
 
         y = self.norm1(y)
 
-        if r is not None:
-            assert self.r_layers
-            r = self.norm1_r(r)
-        else:
-            assert not self.r_layers
+
         
 
         # add in diffusion step embedding
@@ -201,9 +192,7 @@ class DiffWaveBlock(nn.Module):
         # y = self.norm1(y)
         # dilated conv layer
         y, _ = self.layer(y)
-        if r is not None:
 
-            r, _ = self.layer_r(r)
 
         # add mel spectrogram as (local) conditioner
         if mel_spec is not None:
@@ -223,8 +212,7 @@ class DiffWaveBlock(nn.Module):
             mel_spec = self.mel_conv(mel_spec)
             y = y + mel_spec
 
-        if r is not None:
-            y = y + r
+ 
 
         y = x + y
 
@@ -234,11 +222,8 @@ class DiffWaveBlock(nn.Module):
         y = x + y
 
         # for r
-        if r is not None:
-            r = self.norm2_r(r)
-            r = self.ff_r(r)
 
-        return y, r
+        return y
 
 
 
@@ -308,7 +293,7 @@ class Sashimi(nn.Module):
                     d_layers.append(_residual(H, L))
 
             # Add sequence downsampling and feature expanding
-            d_layers.append(DoubleDownSample(H, H*expand, pool=p))
+            d_layers.append(DownPool(H, H*expand, pool=p))
             L //= p
             H *= expand
         self.d_layers = nn.ModuleList(d_layers)
@@ -324,7 +309,7 @@ class Sashimi(nn.Module):
         for p in pool[::-1]:
             H //= expand
             L *= p
-            u_layers.append(DoubleUpSample(H*expand, H, pool=p)) # TODO
+            u_layers.append(UpPool(H*expand, H, pool=p)) # TODO
 
             for i in range(n_layers):
                 u_layers.append(_residual(H, L))
@@ -343,22 +328,6 @@ class Sashimi(nn.Module):
         audio, diffusion_steps = input_data
 
         x = audio
-        
-
-
-        if proll is not None:
-            assert self.r_layers is True
-            r = proll
-            assert not torch.isnan(r).any()
-            #print(r.shape)
-            #print(x.shape)
-            assert x.shape == r.shape
-
-            #r = self.init_conv_r(r)
-            x = x
-        else:
-            r = None
-            assert self.r_layers is False
 
         x = self.init_conv(x)
 
@@ -376,33 +345,29 @@ class Sashimi(nn.Module):
         # Down blocks
         outputs = [] # Store all layers for SequenceUNet structure
         for layer in self.d_layers:
-            outputs.append((x, None))
-            x, r = layer(x, None, diffusion_step_embed, mel_spec=mel_spec)
+            outputs.append(x)
+            x = layer(x, diffusion_step_embed, mel_spec=mel_spec)
 
                 
 
         # Center block
-        outputs.append((x, None))
+        outputs.append(x)
         for layer in self.c_layers:
-            x, r = layer(x, None, diffusion_step_embed, mel_spec=mel_spec)
-        x_, r_ = outputs.pop()
-        x = x + x_
-        if r is not None:
-            r = r + r_
+            x = layer(x, diffusion_step_embed, mel_spec=mel_spec)
+        x = x +  outputs.pop()
+
 
         for layer in self.u_layers:
-            x, r = layer(x, None, diffusion_step_embed, mel_spec=mel_spec)
+            x = layer(x, diffusion_step_embed, mel_spec=mel_spec)
             if isinstance(layer, UpPool) or self.unet:
-                x_, r_ = outputs.pop()
-                x = x + x_
-                if r is not None:
-                    r = r + r_
+                x = x + outputs.pop()
+
 
         # Output embedding
         x = self.norm(x)
         x = self.final_conv(x)
 
-        return x, r
+        return x, None
 
     def __repr__(self):
         return f"sashimi_h{self.d_model}_d{self.n_layers}_pool{''.join(self.pool)}_expand{self.expand}_ff{self.ff}_{'uncond' if self.unconditional else 'cond'}"

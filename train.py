@@ -50,7 +50,8 @@ def train(
     rank, num_gpus,
     diffusion_cfg, model_cfg, dataset_cfg, generate_cfg, # dist_cfg, wandb_cfg, # train_cfg,
     ckpt_iter, n_iters, iters_per_ckpt, iters_per_logging,
-    learning_rate, batch_size_per_gpu, diffuse = False,
+    learning_rate, batch_size_per_gpu, diffuse = True,
+    cold = True,
     # n_samples,
     name=None,
     # mel_path=None,
@@ -143,11 +144,14 @@ def train(
 
             # back-propagation
             optimizer.zero_grad()
-            if diffuse:
+            if diffuse and not cold:
                 loss = training_loss(net, nn.MSELoss(), audio, syn_audio, diffusion_hyperparams, mel_spec=mel_spectrogram)
+            elif diffuse and cold:
+                loss = training_loss_cold(net, nn.MSELoss(), audio, syn_audio, diffusion_hyperparams, mel_spec=mel_spectrogram)
             else:
                 loss = training_loss_noDiffusion(net, nn.MSELoss(), audio, syn_audio, diffusion_hyperparams, mel_spec=mel_spectrogram)
-            #assert not torch.isnan(loss).any(), "Loss is NaN"
+            
+            assert not torch.isnan(loss).any(), "Loss is NaN"
 
             if torch.isnan(loss).any():
                 print("Loss is NaN")
@@ -201,6 +205,7 @@ def train(
                     name=name,
                     syn_audio=syn_val,
                     diffuse = diffuse,
+                    cold = cold,
                     **generate_cfg,
                     # n_samples, n_iter, name,
                     # mel_path=mel_path,
@@ -260,6 +265,36 @@ def training_loss(net, loss_fn, audio, syn_audio, diffusion_hyperparams, mel_spe
     if r is not None: print("r.shape: ", r.shape)
     assert not torch.isnan(epsilon_theta).any()
     return loss_fn(epsilon_theta, z)
+
+
+def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, mel_spec=None):
+    """
+    Compute the training loss of epsilon and epsilon_theta
+
+    Parameters:
+    net (torch network):            the wavenet model
+    loss_fn (torch loss function):  the loss function, default is nn.MSELoss()
+    X (torch.tensor):               training data, shape=(batchsize, 1, length of audio)
+    diffusion_hyperparams (dict):   dictionary of diffusion hyperparameters returned by calc_diffusion_hyperparams
+                                    note, the tensors need to be cuda tensors
+
+    Returns:
+    training loss
+    """
+
+    _dh = diffusion_hyperparams
+    T, Alpha_bar = _dh["T"], _dh["Alpha_bar"]
+
+    # audio = X
+    B, C, L = audio.shape  # B is batchsize, C=1, L is audio length
+    diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
+    z = syn_audio
+    transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * audio + torch.sqrt(1-Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
+    audio_theta, r = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
+    #print("epsilon_theta.shape: ", epsilon_theta.shape)
+    if r is not None: print("r.shape: ", r.shape)
+    assert not torch.isnan(audio_theta).any()
+    return loss_fn(audio_theta, audio)
 
 
 def training_loss_noDiffusion(net, loss_fn, audio_y, audio_x, diffusion_hyperparams, mel_spec=None):
