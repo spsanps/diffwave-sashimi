@@ -284,6 +284,10 @@ def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, me
 
     _dh = diffusion_hyperparams
     T, Alpha_bar = _dh["T"], _dh["Alpha_bar"]
+    
+    # flip alpha_bar ordering
+    Alpha_bar_ = torch.flip(Alpha_bar, dims=[0])
+    Alpha_bar_ = 1 - Alpha_bar_
 
     #print("Alpha_bar: ", Alpha_bar)
     #assert False
@@ -292,7 +296,7 @@ def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, me
     B, C, L = audio.shape  # B is batchsize, C=1, L is audio length
     diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
     z = syn_audio
-    transformed_X = Alpha_bar[diffusion_steps] * audio + (1-Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
+    transformed_X = Alpha_bar_[diffusion_steps] * audio + (1-Alpha_bar_[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
     audio_theta = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
     #print("epsilon_theta.shape: ", epsilon_theta.shape)
     #if r is not None: print("r.shape: ", r.shape)
@@ -317,6 +321,7 @@ def training_loss_noDiffusion(net, loss_fn, audio_y, audio_x, diffusion_hyperpar
 
     _dh = diffusion_hyperparams
     T, Alpha_bar = _dh["T"], _dh["Alpha_bar"]
+
 
     # audio = X
     B, C, L = audio_y.shape  # B is batchsize, C=1, L is audio length

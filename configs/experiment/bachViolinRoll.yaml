@@ -4,9 +4,9 @@ defaults:
   - /dataset: bachViolinRoll
 
 diffusion:
-  T: 1000
-  beta_0: 0.0001
-  beta_T: 0.02
+  T: 200
+  beta_0: 0.001
+  beta_T: 0.05
   beta: null
 
 train:

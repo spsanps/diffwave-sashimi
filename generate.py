@@ -55,8 +55,12 @@ def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, s
                 if t > 0:
                     x = x + Sigma[t] * torch.normal(0, 1, size=size).cuda()  # add the variance term to x_{t-1}
     elif diffuse and cold:
+        # flip alpha_bar ordering
+        Alpha_bar = torch.flip(Alpha_bar, dims=[0])
+        Alpha_bar = 1 - Alpha_bar
         with torch.no_grad():
-            xs = syn_audio
+            # copy the audio
+            xs = syn_audio.clone()
             for t in tqdm(range(T-1, 0, -1)):
                 diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
                 #diffusion_steps_t1 = ((t - 1) * torch.ones((size[0], 1))).cuda() 
