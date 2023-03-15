@@ -24,6 +24,8 @@ from generate import generate
 
 from models import construct_model
 
+import torchaudio
+
 def distributed_train(rank, num_gpus, group_name, cfg):
     # Initialize logger
     if rank == 0 and cfg.wandb is not None:
@@ -266,6 +268,32 @@ def training_loss(net, loss_fn, audio, syn_audio, diffusion_hyperparams, mel_spe
     assert not torch.isnan(epsilon_theta).any()
     return loss_fn(epsilon_theta, z)
 
+def cold_distort_single(audio,t, T):
+    """
+    Distorting is frequency resampling
+    """
+    #new_freq = int((T-t)/T*16000)
+    # exp decay
+    new_freq = int(16000*np.exp(-t*5/T))
+    with torch.no_grad():
+        # resample using torchaudio but maintain the same length
+        distorted_audio = torchaudio.transforms.Resample(16000, new_freq)(audio.cpu())
+        distorted_audio = torchaudio.transforms.Resample(new_freq, 16000)(distorted_audio)
+    # resample using torchaudio but maintain the same length
+    distorted_audio = torchaudio.transforms.Resample(16000, new_freq)(audio.cpu())
+    distorted_audio = torchaudio.transforms.Resample(new_freq, 16000)(distorted_audio)
+    return distorted_audio.cuda()
+
+def cold_distort(audio, t, T):
+    """
+    for batch of audio
+    t is a tensor of shape (batchsize, 1)
+    """
+    distorted_audio = []
+    for i in range(audio.shape[0]):
+        distorted_audio.append(cold_distort_single(audio[i], t[i][0], T))
+    return torch.stack(distorted_audio).cuda()
+
 
 def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, mel_spec=None):
     """
@@ -294,9 +322,13 @@ def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, me
 
     # audio = X
     B, C, L = audio.shape  # B is batchsize, C=1, L is audio length
-    diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
-    z = syn_audio
-    transformed_X = Alpha_bar_[diffusion_steps] * audio + (1-Alpha_bar_[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
+    # randomly sample diffusion steps from 1~T
+    t = np.random.randint(0, T, size = (B, 1))
+     # randomly sample diffusion steps from 1~T
+    transformed_X = cold_distort(audio, t, T)  # compute x_t from q(x_t|x_0)
+    # convert t to tensor
+    t = torch.tensor(t).cuda()
+    diffusion_steps = t*torch.ones((B,1,1)).cuda() 
     audio_theta = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
     #print("epsilon_theta.shape: ", epsilon_theta.shape)
     #if r is not None: print("r.shape: ", r.shape)

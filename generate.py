@@ -15,10 +15,33 @@ from tqdm import tqdm
 # from torch.utils.tensorboard import SummaryWriter # If tensorboard is preferred over wandb
 
 from scipy.io.wavfile import write as wavwrite
+import torchaudio
 # from scipy.io.wavfile import read as wavread
 
 from models import construct_model
 from utils import find_max_epoch, print_size, calc_diffusion_hyperparams, local_directory, smooth_ckpt
+
+def cold_distort_single(audio,t, T):
+    """
+    Distorting is frequency resampling
+    """
+    #new_freq = int((T-t)/T*16000)
+    # exp decay
+    new_freq = int(16000*np.exp(-t*5/T))
+    # resample using torchaudio but maintain the same length
+    with torch.no_grad():
+        distorted_audio = torchaudio.transforms.Resample(16000, new_freq)(audio.cpu())
+        distorted_audio = torchaudio.transforms.Resample(new_freq, 16000)(distorted_audio)
+    return distorted_audio.cuda()
+
+def cold_distort(audio, t, T):
+    """
+    for batch of audio
+    """
+    distorted_audio = []
+    for i in range(audio.shape[0]):
+        distorted_audio.append(cold_distort_single(audio[i], t, T))
+    return torch.stack(distorted_audio).cuda()
 
 def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, syn_audio=None, cold = True):
     """
@@ -60,14 +83,14 @@ def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, s
         Alpha_bar = 1 - Alpha_bar
         with torch.no_grad():
             # copy the audio
-            xs = syn_audio.clone()
+            xs = cold_distort(syn_audio, T-1, T)
             for t in tqdm(range(T-1, 0, -1)):
                 diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
+                tm1 = (t-1) * torch.ones((size[0], 1))
                 #diffusion_steps_t1 = ((t - 1) * torch.ones((size[0], 1))).cuda() 
                 x0 = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
-                x0s = (Alpha_bar[t]) * x0 + (1-Alpha_bar[t]) * syn_audio
-                x0s1 = (Alpha_bar[t - 1]) * x0s + (1-Alpha_bar[t - 1]) * syn_audio
-                xs = xs - x0s + x0s1
+                xs = cold_distort(syn_audio, tm1, T)
+                #assert False
                 #
             t = 0
             diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
