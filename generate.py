@@ -48,16 +48,16 @@ def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, s
         with torch.no_grad():
             for t in tqdm(range(T-1, -1, -1)):
                 diffusion_steps = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
-                epsilon_theta, _ = net((x, diffusion_steps,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
+                epsilon_theta = net((x, diffusion_steps,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
                 x = (x - (1-Alpha[t])/torch.sqrt(1-Alpha_bar[t]) * epsilon_theta) / torch.sqrt(Alpha[t])  # update x_{t-1} to \mu_\theta(x_t)
                 if t > 0:
                     x = x + Sigma[t] * torch.normal(0, 1, size=size).cuda()  # add the variance term to x_{t-1}
     else:
-        with torch.no_grad():
-            B, C, L = syn_audio.shape 
+        B, C, L = syn_audio.shape 
+        with torch.no_grad():   
             #t = torch.randint(T).cuda()
             diffusion_steps = (torch.ones((size[0], 1))).cuda()*0
-            x, _ = net((syn_audio, diffusion_steps,), mel_spec=condition, proll=None)
+            x, _ = net((syn_audio, diffusion_steps,), mel_spec=condition)
     return x
 
 

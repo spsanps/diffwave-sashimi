@@ -13,6 +13,7 @@ import hydra
 import wandb
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
+import torchaudio
 
 # from dataset_sc import load_Speech_commands
 # from dataset_ljspeech import load_LJSpeech
@@ -140,8 +141,16 @@ def train(
                 mel_spectrogram = None
             else:
                 audio, syn_audio, proll, _ = data
+                #torchaudio.save("audio.wav", audio[0], 16000)
                 mel_spectrogram = proll.cuda()
                 audio = audio.cuda()
+                # save audio in file
+                # save mel tensor as a text file
+                #for i in range(len(mel_spectrogram)):
+                #np.savetxt("mel_spectrogram.txt", mel_spectrogram[0].cpu().numpy())
+                #break
+                #assert False
+
 
             # back-propagation
             optimizer.zero_grad()
@@ -258,9 +267,9 @@ def training_loss(net, loss_fn, audio, syn_audio, diffusion_hyperparams, mel_spe
     diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
     z = torch.normal(0, 1, size=audio.shape).cuda()
     transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * audio + torch.sqrt(1-Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
-    epsilon_theta, r = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
+    epsilon_theta = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
     #print("epsilon_theta.shape: ", epsilon_theta.shape)
-    if r is not None: print("r.shape: ", r.shape)
+    #if r is not None: print("r.shape: ", r.shape)
     assert not torch.isnan(epsilon_theta).any()
     return loss_fn(epsilon_theta, z)
 
