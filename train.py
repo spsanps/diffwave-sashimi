@@ -275,13 +275,10 @@ def cold_distort_single(audio,t, T):
     #new_freq = int((T-t)/T*16000)
     # exp decay
     new_freq = int(16000*np.exp(-t*5/T))
+    # resample but maintain the same length
     with torch.no_grad():
-        # resample using torchaudio but maintain the same length
         distorted_audio = torchaudio.transforms.Resample(16000, new_freq)(audio.cpu())
         distorted_audio = torchaudio.transforms.Resample(new_freq, 16000)(distorted_audio)
-    # resample using torchaudio but maintain the same length
-    distorted_audio = torchaudio.transforms.Resample(16000, new_freq)(audio.cpu())
-    distorted_audio = torchaudio.transforms.Resample(new_freq, 16000)(distorted_audio)
     return distorted_audio.cuda()
 
 def cold_distort(audio, t, T):
@@ -323,9 +320,10 @@ def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, me
     # audio = X
     B, C, L = audio.shape  # B is batchsize, C=1, L is audio length
     # randomly sample diffusion steps from 1~T
-    t = np.random.randint(0, T, size = (B, 1))
+    t = np.random.randint(1, T, size = (B, 1))
      # randomly sample diffusion steps from 1~T
     transformed_X = cold_distort(audio, t, T)  # compute x_t from q(x_t|x_0)
+    target_X = cold_distort(audio, t-1, T)  # compute x_t from q(x_t|x_0)
     # convert t to tensor
     t = torch.tensor(t).cuda()
     diffusion_steps = t*torch.ones((B,1,1)).cuda() 
@@ -333,7 +331,11 @@ def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, me
     #print("epsilon_theta.shape: ", epsilon_theta.shape)
     #if r is not None: print("r.shape: ", r.shape)
     assert not torch.isnan(audio_theta).any()
-    return loss_fn(audio_theta, audio)
+    loss = loss_fn(audio_theta, target_X)
+    # normalize loss in range [0,1] wrt to max loss
+    #loss = loss / torch.max(loss)
+    return loss
+
 
 
 def training_loss_noDiffusion(net, loss_fn, audio_y, audio_x, diffusion_hyperparams, mel_spec=None):

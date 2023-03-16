@@ -28,7 +28,7 @@ def cold_distort_single(audio,t, T):
     #new_freq = int((T-t)/T*16000)
     # exp decay
     new_freq = int(16000*np.exp(-t*5/T))
-    # resample using torchaudio but maintain the same length
+    # resample but maintain the same length
     with torch.no_grad():
         distorted_audio = torchaudio.transforms.Resample(16000, new_freq)(audio.cpu())
         distorted_audio = torchaudio.transforms.Resample(new_freq, 16000)(distorted_audio)
@@ -86,12 +86,8 @@ def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, s
             xs = cold_distort(syn_audio, T-1, T)
             for t in tqdm(range(T-1, 0, -1)):
                 diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
-                tm1 = (t-1) * torch.ones((size[0], 1))
-                #diffusion_steps_t1 = ((t - 1) * torch.ones((size[0], 1))).cuda() 
-                x0 = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
-                xs = cold_distort(syn_audio, tm1, T)
-                #assert False
-                #
+                xs = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
+
             t = 0
             diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
             x = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
