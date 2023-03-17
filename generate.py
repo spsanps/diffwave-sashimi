@@ -60,7 +60,7 @@ def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, s
         Alpha_bar = 1 - Alpha_bar
         with torch.no_grad():
             # copy the audio
-            xs = syn_audio.clone()
+            xs = syn_audio.clone().detach()
             for t in tqdm(range(T-1, 0, -1)):
                 diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
                 #diffusion_steps_t1 = ((t - 1) * torch.ones((size[0], 1))).cuda() 

@@ -295,8 +295,7 @@ def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, me
     # audio = X
     B, C, L = audio.shape  # B is batchsize, C=1, L is audio length
     diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
-    z = syn_audio
-    transformed_X = Alpha_bar_[diffusion_steps] * audio + (1-Alpha_bar_[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
+    transformed_X = Alpha_bar_[diffusion_steps] * audio + (1-Alpha_bar_[diffusion_steps]) * syn_audio  # compute x_t from q(x_t|x_0)
     audio_theta = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
     #print("epsilon_theta.shape: ", epsilon_theta.shape)
     #if r is not None: print("r.shape: ", r.shape)
@@ -328,7 +327,7 @@ def training_loss_noDiffusion(net, loss_fn, audio_y, audio_x, diffusion_hyperpar
     diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
     #z = torch.normal(0, 1, size=audio_y.shape).cuda()
     #transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * audio_y + torch.sqrt(1-Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
-    audio_y_pred, _ = net((audio_x, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
+    audio_y_pred = net((audio_x, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
     #print("epsilon_theta.shape: ", epsilon_theta.shape)
     #if r is not None: print("r.shape: ", r.shape)
     #assert not torch.isnan(epsilon_theta).any()
