@@ -86,19 +86,12 @@ def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, s
             xs = cold_distort(syn_audio, T-1, T)
             for t in tqdm(range(T-1, 0, -1)):
                 diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
-<<<<<<< HEAD
-                xs = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
-
-=======
                 #tm1 = (t-1) * torch.ones((size[0], 1))
                 #diffusion_steps_t1 = ((t - 1) * torch.ones((size[0], 1))).cuda() 
                 x0 = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
                 x0s = cold_distort(x0, t, T)
                 x0s1 = cold_distort(x0, t - 1, T)
                 xs = xs - x0s + x0s1
-                #assert False
-                #
->>>>>>> b623049 (freq generate fixes)
             t = 0
             diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
             x = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta

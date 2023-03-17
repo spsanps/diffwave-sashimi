@@ -263,8 +263,7 @@ def training_loss(net, loss_fn, audio, syn_audio, diffusion_hyperparams, mel_spe
     z = torch.normal(0, 1, size=audio.shape).cuda()
     transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * audio + torch.sqrt(1-Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
     epsilon_theta, r = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec, syn_audio=syn_audio)  # predict \epsilon according to \epsilon_\theta
-    #print("epsilon_theta.shape: ", epsilon_theta.shape)
-    if r is not None: print("r.shape: ", r.shape)
+
     assert not torch.isnan(epsilon_theta).any()
     return loss_fn(epsilon_theta, z)
 
@@ -310,30 +309,22 @@ def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, me
     _dh = diffusion_hyperparams
     T, Alpha_bar = _dh["T"], _dh["Alpha_bar"]
     
-    # flip alpha_bar ordering
-    Alpha_bar_ = torch.flip(Alpha_bar, dims=[0])
-    Alpha_bar_ = 1 - Alpha_bar_
-
-    #print("Alpha_bar: ", Alpha_bar)
-    #assert False
-
     # audio = X
     B, C, L = audio.shape  # B is batchsize, C=1, L is audio length
     # randomly sample diffusion steps from 1~T
-    t = np.random.randint(1, T, size = (B, 1))
-     # randomly sample diffusion steps from 1~T
+    #t = np.random.randint(1, T, size = (B, 1))
+    diffusion_steps = torch.randint(T, size=(B,1)).cuda()
+    t = diffusion_steps
+
     transformed_X = cold_distort(audio, t, T)  # compute x_t from q(x_t|x_0)
-    target_X = cold_distort(audio, t-1, T)  # compute x_t from q(x_t|x_0)
-    # convert t to tensor
-    t = torch.tensor(t).cuda()
-    diffusion_steps = t*torch.ones((B,1,1)).cuda() 
+    #target_X = cold_distort(audio, t-1, T)  # compute x_t from q(x_t|x_0)
+
     audio_theta = net((transformed_X, diffusion_steps.view(B,1),), mel_spec=mel_spec)  # predict \epsilon according to \epsilon_\theta
-    #print("epsilon_theta.shape: ", epsilon_theta.shape)
-    #if r is not None: print("r.shape: ", r.shape)
+
+
     assert not torch.isnan(audio_theta).any()
-    loss = loss_fn(audio_theta, target_X)
-    # normalize loss in range [0,1] wrt to max loss
-    #loss = loss / torch.max(loss)
+    loss = loss_fn(audio_theta, audio)
+
     return loss
 
 
