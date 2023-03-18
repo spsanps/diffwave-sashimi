@@ -66,7 +66,7 @@ def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, s
                 #diffusion_steps_t1 = ((t - 1) * torch.ones((size[0], 1))).cuda() 
                 x0 = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
                 x0s = (Alpha_bar[t]) * x0 + (1-Alpha_bar[t]) * syn_audio
-                x0s1 = (Alpha_bar[t - 1]) * x0s + (1-Alpha_bar[t - 1]) * syn_audio
+                x0s1 = (Alpha_bar[t - 1]) * x0 + (1-Alpha_bar[t - 1]) * syn_audio
                 xs = xs - x0s + x0s1
                 #
             t = 0

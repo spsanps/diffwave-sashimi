@@ -21,9 +21,8 @@ from torchaudio.datasets.utils import (
 
 import glob
 
-MAX_WAV_VALUE = 32768.0
 
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 8000
 
 def files_to_list(data_path, ends_with = '.mp3'):
     """
@@ -45,10 +44,10 @@ def load_wav_to_torch(full_path):
     audio, sample_rate = torchaudio.load(full_path, format='mp3')
 
     # downsample to 16kHz
-    if sample_rate != 16000:
-        audio = torchaudio.transforms.Resample(sample_rate, 16000)(audio)
+    if sample_rate != SAMPLE_RATE:
+        audio = torchaudio.transforms.Resample(sample_rate, SAMPLE_RATE)(audio)
 
-    audio = fix_length(audio, 16000)
+    audio = fix_length(audio, SAMPLE_RATE)
 
     return audio, sample_rate, "violin" # add label
 
@@ -133,6 +132,12 @@ class BachViolinRoll(Dataset):
         # load syn wave
         syn, sample_rate2 = torchaudio.load(synfile)
 
+        # normalize audio
+        audio = audio / audio.abs().max()
+
+        # normalize syn
+        syn = syn / syn.abs().max()
+
         # load proll
         prollfile = self.proll_paths[n]
         #proll = np.load(prollfile)
@@ -144,14 +149,14 @@ class BachViolinRoll(Dataset):
 
         # audio is 16Khz, proll is 64Hz
         #print(audio.shape, proll.shape)
-        #assert proll.shape[1]*16000/64 == audio.shape[1]
+        #assert proll.shape[1]*SAMPLE_RATE/64 == audio.shape[1]
 
         # find a 1 random second segment
         audio_len = audio.shape[1]
         start = np.random.randint(0, audio_len - SAMPLE_RATE)
         audio = audio[:,start:start+SAMPLE_RATE]
         syn = syn[:,start:start+SAMPLE_RATE]
-        #proll = proll[:,start*64//16000:(start+SAMPLE_RATE)*64//16000]
+        #proll = proll[:,start*64//SAMPLE_RATE:(start+SAMPLE_RATE)*64//SAMPLE_RATE]
 
         # TODO proll in tensor
 

@@ -25,7 +25,7 @@ distributed:
 
 wandb:
   mode: online # Pass in 'wandb.mode=online' to turn on wandb logging
-  project: sashimi-null-cold # Name of wandb project
+  project: sashimi-syn8000-cold # Name of wandb project
   entity: null
-  id: sashimi-null-cold-1 # Set to string to resume logging from run
+  id: sashimi-syn8000-cold-4 # Set to string to resume logging from run
   job_type: training

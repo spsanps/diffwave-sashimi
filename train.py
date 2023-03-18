@@ -292,7 +292,9 @@ def training_loss_cold(net, loss_fn, audio, syn_audio, diffusion_hyperparams, me
     #print("Alpha_bar: ", Alpha_bar)
     #assert False
 
-    # audio = X
+    # normalize audio
+    #audio = audio / torch.max(torch.abs(audio))
+
     B, C, L = audio.shape  # B is batchsize, C=1, L is audio length
     diffusion_steps = torch.randint(T, size=(B,1,1)).cuda()  # randomly sample diffusion steps from 1~T
     transformed_X = Alpha_bar_[diffusion_steps] * audio + (1-Alpha_bar_[diffusion_steps]) * syn_audio  # compute x_t from q(x_t|x_0)
