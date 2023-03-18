@@ -21,18 +21,20 @@ import torchaudio
 from models import construct_model
 from utils import find_max_epoch, print_size, calc_diffusion_hyperparams, local_directory, smooth_ckpt
 
+FREQ = 8000
+
 def cold_distort_single(audio,t, T):
     """
     Distorting is frequency resampling
     """
-    #new_freq = int((T-t)/T*16000)
+    #new_freq = int((T-t)/T*FREQ)
     # exp decay
     #t = t.clone().detach().cpu().numpy()
-    new_freq = int(16000*np.exp(-t*5/T))
+    new_freq = int(FREQ*np.exp(-t*5/T))
     # resample but maintain the same length
     with torch.no_grad():
-        distorted_audio = torchaudio.transforms.Resample(16000, new_freq)(audio.cpu())
-        distorted_audio = torchaudio.transforms.Resample(new_freq, 16000)(distorted_audio)
+        distorted_audio = torchaudio.transforms.Resample(FREQ, new_freq)(audio.cpu())
+        distorted_audio = torchaudio.transforms.Resample(new_freq, FREQ)(distorted_audio)
     return distorted_audio.cuda()
 
 def cold_distort(audio, t, T):
@@ -211,7 +213,7 @@ def generate(
         audio_length = ground_truth_mel_spectrogram.shape[-1] * dataset_cfg["hop_length"]
     else:
         # predefine audio shape
-        audio_length = dataset_cfg["segment_length"]  # 16000
+        audio_length = dataset_cfg["segment_length"]  # FREQ
         ground_truth_mel_spectrogram = None
     print(f'begin generating audio of length {audio_length} | {n_samples} samples with batch size {batch_size}')
 

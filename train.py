@@ -26,6 +26,8 @@ from models import construct_model
 
 import torchaudio
 
+FREQ = 8000
+
 def distributed_train(rank, num_gpus, group_name, cfg):
     # Initialize logger
     if rank == 0 and cfg.wandb is not None:
@@ -271,14 +273,14 @@ def cold_distort_single(audio,t, T):
     """
     Distorting is frequency resampling
     """
-    #new_freq = int((T-t)/T*16000)
+    #new_freq = int((T-t)/T*FREQ)
     # exp decay
     t = t.clone().detach().cpu().numpy()
-    new_freq = int(16000*np.exp(-t*5/T))
+    new_freq = int(FREQ*np.exp(-t*5/T))
     # resample but maintain the same length
     with torch.no_grad():
-        distorted_audio = torchaudio.transforms.Resample(16000, new_freq)(audio.cpu())
-        distorted_audio = torchaudio.transforms.Resample(new_freq, 16000)(distorted_audio)
+        distorted_audio = torchaudio.transforms.Resample(FREQ, new_freq)(audio.cpu())
+        distorted_audio = torchaudio.transforms.Resample(new_freq, FREQ)(distorted_audio)
     return distorted_audio
 
 def cold_distort(audio, t, T):
