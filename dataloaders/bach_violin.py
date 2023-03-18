@@ -21,7 +21,6 @@ from torchaudio.datasets.utils import (
 
 import glob
 
-MAX_WAV_VALUE = 32768.0
 
 SAMPLE_RATE = 8000
 
@@ -129,6 +128,9 @@ class BachViolinRoll(Dataset):
 
         # load audio wave
         audio, sample_rate = torchaudio.load(audiofile)
+
+        # normalize
+        audio = audio / audio.abs().max()
         
         # load syn wave
         syn, sample_rate2 = torchaudio.load(synfile)

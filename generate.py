@@ -30,11 +30,15 @@ def cold_distort_single(audio,t, T):
     #new_freq = int((T-t)/T*FREQ)
     # exp decay
     #t = t.clone().detach().cpu().numpy()
-    new_freq = int(FREQ*np.exp(-t*5/T))
+    # linear decay from 100% to 10%
+
+    new_freq = int(FREQ*np.exp(-t*2.7/T))
     # resample but maintain the same length
     with torch.no_grad():
         distorted_audio = torchaudio.transforms.Resample(FREQ, new_freq)(audio.cpu())
         distorted_audio = torchaudio.transforms.Resample(new_freq, FREQ)(distorted_audio)
+        # normalize
+        distorted_audio = distorted_audio / torch.abs(distorted_audio).max()
     return distorted_audio.cuda()
 
 def cold_distort(audio, t, T):
@@ -95,9 +99,9 @@ def sampling(net, size, diffusion_hyperparams, diffuse = True, condition=None, s
                 x0s = cold_distort(x0, t, T)
                 x0s1 = cold_distort(x0, t - 1, T)
                 xs = xs - x0s + x0s1
-            t = 0
-            diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
-            x = net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
+            #t = 0
+            #diffusion_steps_t = (t * torch.ones((size[0], 1))).cuda()  # use the corresponding reverse step
+            x = xs #net((xs, diffusion_steps_t,), mel_spec=condition)  # predict \epsilon according to \epsilon_\theta
     else:   
         with torch.no_grad():
             B, C, L = syn_audio.shape 
