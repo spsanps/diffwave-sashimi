@@ -21,9 +21,9 @@ from torchaudio.datasets.utils import (
 
 import glob
 
-MAX_WAV_VALUE = 32768.0
 
-SAMPLE_RATE = 16000
+FREQ = 8000
+SAMPLE_RATE = FREQ
 MEL_FREQ = 128
 
 def files_to_list(data_path, ends_with = '.mp3'):
@@ -46,10 +46,10 @@ def load_wav_to_torch(full_path):
     audio, sample_rate = torchaudio.load(full_path, format='mp3')
 
     # downsample to 16kHz
-    if sample_rate != 16000:
-        audio = torchaudio.transforms.Resample(sample_rate, 16000)(audio)
+    if sample_rate != FREQ:
+        audio = torchaudio.transforms.Resample(sample_rate, FREQ)(audio)
 
-    audio = fix_length(audio, 16000)
+    audio = fix_length(audio, FREQ)
 
     return audio, sample_rate, "violin" # add label
 
@@ -123,7 +123,7 @@ class BachViolinRoll(Dataset):
         #print(len(self.audio_paths))
 
         assert len(self.audio_paths) == len(self.syn_paths)
-        assert len(self.audio_paths) == len(self.syn_paths)
+        assert len(self.audio_paths) == len(self.proll_paths)
 
     def __getitem__(self, n: int) -> Tuple[Tensor, int, str, str, int]:
         n = n % len(self.audio_paths)
@@ -143,19 +143,20 @@ class BachViolinRoll(Dataset):
 
 
         assert sample_rate == sample_rate2
+        assert sample_rate == FREQ
         assert audio.shape[1] == syn.shape[1]
 
         # audio is 16Khz, proll is 64Hz
         #print(audio.shape, proll.shape)
         #print(audio.shape[1], proll.shape[1])
-        assert proll.shape[1]*16000/MEL_FREQ == audio.shape[1], f"{proll.shape[1]*16000/MEL_FREQ} != {audio.shape[1]}"
+        assert proll.shape[1]*FREQ/MEL_FREQ == audio.shape[1], f"{proll.shape[1]*FREQ/MEL_FREQ} != {audio.shape[1]}"
 
         # find a 1 random second segment
         audio_len = audio.shape[1]
         start = np.random.randint(0, audio_len - SAMPLE_RATE)
         audio = audio[:,start:start+SAMPLE_RATE]
         syn = syn[:,start:start+SAMPLE_RATE]
-        proll_start = start*MEL_FREQ//16000
+        proll_start = int(start*MEL_FREQ//FREQ)
         proll = proll[:,proll_start:proll_start+MEL_FREQ]
 
         # convert to tensor

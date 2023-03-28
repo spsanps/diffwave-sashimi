@@ -25,7 +25,7 @@ distributed:
 
 wandb:
   mode: online # Pass in 'wandb.mode=online' to turn on wandb logging
-  project: sashimi-spect-conditioned # Name of wandb project
+  project: sashimi-spect64-conditioned # Name of wandb project
   entity: null
-  id: sashimi-spect-conditioned-4 # Set to string to resume logging from run
+  id: sashimi-spect64-conditioned-3 # Set to string to resume logging from run
   job_type: training

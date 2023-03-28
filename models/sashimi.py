@@ -129,7 +129,7 @@ class DiffWaveBlock(nn.Module):
         self.norm1 = TransposedLN(d_model)
         self.norm2 = TransposedLN(d_model)
 
-        self.unconditional = unconditional
+        self.unconditional = False
         if not self.unconditional:
             # add mel spectrogram upsampler and conditioner conv1x1 layer
             self.upsample_conv2d = torch.nn.ModuleList()
@@ -138,12 +138,13 @@ class DiffWaveBlock(nn.Module):
                 conv_trans2d = torch.nn.utils.weight_norm(conv_trans2d)
                 torch.nn.init.kaiming_normal_(conv_trans2d.weight)
                 self.upsample_conv2d.append(conv_trans2d)
-            self.mel_conv = Conv(128, self.d_model, kernel_size=1)  # 80 is mel bands
+            self.mel_conv = Conv(64, self.d_model, kernel_size=1)  # 80 is mel bands
 
     def forward(self, x, diffusion_step_embed, mel_spec=None):
         y = x
         B, C, L = x.shape
         assert C == self.d_model
+        assert mel_spec is not None
 
         y = self.norm1(y)
 
@@ -166,7 +167,8 @@ class DiffWaveBlock(nn.Module):
             mel_spec = torch.squeeze(mel_spec, dim=1)
             # print(mel_spec.shape)
 
-            # print(mel_spec.size(2), L)
+            #print(mel_spec.size(2), L)
+            #print(mel_spec.size)
             assert(mel_spec.size(2) >= L)
             if mel_spec.size(2) > L:
                 mel_spec = mel_spec[:, :, :L]

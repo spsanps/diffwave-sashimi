@@ -178,6 +178,8 @@ def generate(
 
     generated_audio = []
 
+    assert mel_spec is not None
+
     for _ in range(n_samples // batch_size):
         _audio = sampling(
             net,

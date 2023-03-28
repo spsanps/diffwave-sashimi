@@ -14,4 +14,4 @@ train:
 
 model:
   unconditional: false
-  mel_upsample: [16, 16]
+  mel_upsample: [8, 8]
