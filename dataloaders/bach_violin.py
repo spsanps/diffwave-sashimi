@@ -22,9 +22,10 @@ from torchaudio.datasets.utils import (
 import glob
 
 
-FREQ = 8000
+FREQ = 16000
 SAMPLE_RATE = FREQ
-MEL_FREQ = 128
+MEL_FREQ = 32
+LEN = 16
 
 def files_to_list(data_path, ends_with = '.mp3'):
     """
@@ -49,7 +50,7 @@ def load_wav_to_torch(full_path):
     if sample_rate != FREQ:
         audio = torchaudio.transforms.Resample(sample_rate, FREQ)(audio)
 
-    audio = fix_length(audio, FREQ)
+    audio = fix_length(audio, FREQ*LEN)
 
     return audio, sample_rate, "violin" # add label
 
@@ -86,7 +87,7 @@ class BachViolin(Dataset):
     def __len__(self) -> int:
         # randomly sample parts of the audio file
         # to cover all parts of the audio file
-        return len(self.audio_paths)*5000 
+        return len(self.audio_paths)*1000 
 
 
 class BachViolinRoll(Dataset):
@@ -151,11 +152,12 @@ class BachViolinRoll(Dataset):
         #print(audio.shape[1], proll.shape[1])
         assert proll.shape[1]*FREQ/MEL_FREQ == audio.shape[1], f"{proll.shape[1]*FREQ/MEL_FREQ} != {audio.shape[1]}"
 
-        # find a 1 random second segment
+        # find a random LEN second segment
         audio_len = audio.shape[1]
-        start = np.random.randint(0, audio_len - SAMPLE_RATE)
-        audio = audio[:,start:start+SAMPLE_RATE]
-        syn = syn[:,start:start+SAMPLE_RATE]
+        samp_len = FREQ*LEN
+        start = np.random.randint(0, audio_len - samp_len)
+        audio = audio[:,start:start+samp_len]
+        syn = syn[:,start:start+samp_len]
         proll_start = int(start*MEL_FREQ//FREQ)
         proll = proll[:,proll_start:proll_start+MEL_FREQ]
 
@@ -170,4 +172,4 @@ class BachViolinRoll(Dataset):
     def __len__(self) -> int:
         # randomly sample parts of the audio file
         # to cover all parts of the audio file
-        return len(self.audio_paths)*5000
+        return len(self.audio_paths)*1000

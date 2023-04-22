@@ -1,9 +1,9 @@
 _name_: bachViolinRollProll
 data_path: data/bv_processed2
-segment_length: 8000
-sampling_rate: 8000
-filter_length: 128
-hop_length: 128
-win_length: 128
+segment_length: 256000
+sampling_rate: 16000
+filter_length: 32
+hop_length: 1024
+win_length: 512
 mel_fmin: 0.0
 mel_fmax: 8000.0

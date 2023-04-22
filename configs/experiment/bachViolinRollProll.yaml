@@ -14,4 +14,4 @@ train:
 
 model:
   unconditional: false
-  mel_upsample: [8, 8]
+  mel_upsample: [32, 16, 16] # Product should equal hop_length

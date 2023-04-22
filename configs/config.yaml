@@ -1,20 +1,20 @@
 defaults:
   - _self_
-  - experiment: bachViolin
+  - experiment: bachViolinRollProll
 
 train: # Not used in generate.py
   name: null # Name of experiment (prefix of experiment name)
   ckpt_iter: max
-  iters_per_ckpt: 10000
+  iters_per_ckpt: 1000
   iters_per_logging: 100
   n_iters: 1000001
   learning_rate: 2e-4
-  batch_size_per_gpu: 4
+  batch_size_per_gpu: 1
 
 generate:
   ckpt_iter: max # Which checkpoint to use; assign a number or "max". Is ignored when sampling during training
   ckpt_smooth: null # Which checkpoint to start averaging from (experimental feature, can ignore)
-  n_samples: 16 # Number of utterances to be generated (per GPU)
+  n_samples: 1 # Number of utterances to be generated (per GPU)
   batch_size: null # Number of samples to generate at once per GPU. null means max (equal to samples_per_gpu)
   mel_path: null # Folder of preprocessed spectrograms (optional)
   mel_name: null # Name of specific spectrogram to condition on (set to null for unconditional, set to an audio file name for vocoding)
@@ -25,7 +25,7 @@ distributed:
 
 wandb:
   mode: online # Pass in 'wandb.mode=online' to turn on wandb logging
-  project: sashimi-spect64-conditioned # Name of wandb project
+  project: sashimi-conditioned-16s # Name of wandb project
   entity: null
-  id: sashimi-spect64-conditioned-3 # Set to string to resume logging from run
+  id: sashimi-conditioned-16s-3 # Set to string to resume logging from run
   job_type: training

@@ -138,6 +138,8 @@ class DiffWaveBlock(nn.Module):
                 conv_trans2d = torch.nn.utils.weight_norm(conv_trans2d)
                 torch.nn.init.kaiming_normal_(conv_trans2d.weight)
                 self.upsample_conv2d.append(conv_trans2d)
+
+            
             self.mel_conv = Conv(64, self.d_model, kernel_size=1)  # 80 is mel bands
 
     def forward(self, x, diffusion_step_embed, mel_spec=None):
@@ -162,18 +164,23 @@ class DiffWaveBlock(nn.Module):
             assert not self.unconditional
             # Upsample spectrogram to size of audio
             mel_spec = torch.unsqueeze(mel_spec, dim=1)
-            mel_spec = F.leaky_relu(self.upsample_conv2d[0](mel_spec), 0.4)
-            mel_spec = F.leaky_relu(self.upsample_conv2d[1](mel_spec), 0.4)
+            for i in range(len(self.upsample_conv2d)):
+                mel_spec = F.leaky_relu(self.upsample_conv2d[i](mel_spec), 0.4)
+            
             mel_spec = torch.squeeze(mel_spec, dim=1)
             # print(mel_spec.shape)
 
             #print(mel_spec.size(2), L)
             #print(mel_spec.size)
             assert(mel_spec.size(2) >= L)
+
+            
             if mel_spec.size(2) > L:
                 mel_spec = mel_spec[:, :, :L]
 
             mel_spec = self.mel_conv(mel_spec)
+
+            
             y = y + mel_spec
 
         y = x + y
