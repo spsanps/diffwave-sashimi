@@ -1,10 +1,24 @@
 # Experiments with S4/Sashimi models
 
-This repository is a fork of : https://github.com/albertfgu/diffwave-sashimi
+What is Sashmi: [https://arxiv.org/abs/2202.09729](https://arxiv.org/abs/2202.09729)
+
+This repository is a fork of : [https://github.com/albertfgu/diffwave-sashimi](https://github.com/albertfgu/diffwave-sashimi)
 
 Each branch is a different experiment
 
-## Exp: Piano Roll as Mel Spectrograms For conditional Generation
+Please view the branches for more information.
+
+- cold_diffusion2:  Using [Cold Diffusion](https://arxiv.org/abs/2208.09392) to transform midi inputs to audio waveforms using Sashimi
+- freq_diffusion2: Diffusion in the frequency domain using Sashimi
+- no_diffusion: Using Sashmi without diffusion
+- proll_as_mel: Using piano roll for conditional diffusion
+
+Other branches are not in use. 
+
+## Piano Roll Instead of Mel Spectogram
+
+Using Piano roll input instead of Spectogram for condition diffusion in Sashimi. Results are promising. 
+
 
 
 
